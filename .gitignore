@@ -1,0 +1,10 @@
+node_modules
+.env
+.DS_Store
+dist
+frontend/node_modules
+frontend/dist
+data/*.md
+!data/meals.md
+!data/recipes.md
+list_models.js

@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 
@@ -10,6 +11,19 @@ const app = express();
 const PORT = 3001;
 const DATA_FILE = path.join(__dirname, '../data/meals.md');
 const RECIPES_FILE = path.join(__dirname, '../data/recipes.md');
+const UPLOADS_DIR = path.join(__dirname, '../uploads');
+
+// Configure Multer for image storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, 'upload-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
 
 // Initialize Gemini
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
@@ -19,6 +33,17 @@ app.use(bodyParser.json());
 
 // Serve static files from the React frontend app
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Serve uploaded images statically
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Image Upload Endpoint
+app.post('/api/upload', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  const imageUrl = `/uploads/${req.file.filename}`;
+  res.json({ imageUrl });
+});
 
 // Helper to wrap JSON in Markdown
 const wrapInMarkdown = (data, title = 'Weekly Meal Plan') => {

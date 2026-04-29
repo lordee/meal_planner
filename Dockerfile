@@ -17,6 +17,7 @@ RUN npm install --production
 # Copy backend code
 COPY server/ ./server/
 COPY data/ ./data/
+RUN mkdir -p uploads
 
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

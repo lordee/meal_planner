@@ -183,8 +183,8 @@
     "name": "italian skillet chicken",
     "description": "",
     "imageUrl": "https://loremflickr.com/600/400/food,meal,italian%2Cskillet%2Cchicken/all",
-    "recipeUrl": "",
-    "ingredients": ""
+    "recipeUrl": "https://www.simplyrecipes.com/recipes/italian_skillet_chicken_with_spinach_tomatoes_and_onions/",
+    "ingredients": "1.5 | pounds | chicken\n1 | tablespoon | oregano\n2.5 | teaspoons | thyme\n1.5 | teaspoons | kosher salt\n1 | teaspoon | basil\n1 | teaspoon | black pepper\n1 | | lemon zest\n3 | tablespoons | lemon juice\n3 | cloves | garlic\n2 | tablespoons | olive oil\n2 | teaspoons | olive oil\n1 | pint | cherry tomatoes\n1 | | medium red onion\n2 | cups | spinach\n1 | teaspoon | capers\n1 | tablespoon | unsalted butter\n1 | | crusty bread"
   },
   {
     "id": "9mepyayo0",
@@ -255,6 +255,14 @@
     "name": "tahini roast salad",
     "description": "",
     "imageUrl": "https://loremflickr.com/600/400/food,meal,tahini%2Croast%2Csalad/all",
+    "recipeUrl": "",
+    "ingredients": ""
+  },
+  {
+    "id": "g8pb9som7",
+    "name": "steak",
+    "description": "",
+    "imageUrl": "https://loremflickr.com/600/400/food,meal,steak/all",
     "recipeUrl": "",
     "ingredients": ""
   }

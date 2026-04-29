@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, Utensils, X, BookOpen, Search, Check, ExternalLink, ShoppingBasket, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Calendar, Utensils, X, BookOpen, Search, Check, ExternalLink, ShoppingBasket, Sparkles, Upload, Image as ImageIcon } from 'lucide-react';
 
 type Recipe = {
   id: string;
@@ -48,6 +48,7 @@ export default function App() {
   const [editingMeal, setEditingMeal] = useState<{ day: string, originalDay: string, meal: Meal } | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isFormatting, setIsFormatting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -85,7 +86,6 @@ export default function App() {
     if (!ingredients.trim()) return;
     setIsFormatting(true);
 
-    // Capture IDs before async call to ensure we save to the right place even if modal closes
     const mealId = editingMeal?.meal.id;
     const mealName = editingMeal?.meal.name;
     const recipeId = editingRecipe?.id;
@@ -104,7 +104,6 @@ export default function App() {
         if (type === 'new') {
           setNewMeal(prev => ({ ...prev, ingredients: formatted }));
         } else if (type === 'meal' && mealId) {
-          // 1. Update Plans
           const updatedPlans = plans.map(p => ({
             ...p,
             meals: p.meals.map(m => m.id === mealId ? { ...m, ingredients: formatted } : m)
@@ -112,22 +111,18 @@ export default function App() {
           setPlans(updatedPlans);
           saveToBackend(updatedPlans);
 
-          // 2. Sync to Recipes Library
           const updatedRecipes = recipes.map(r => 
             r.name.toLowerCase() === mealName?.toLowerCase() ? { ...r, ingredients: formatted } : r
           );
           setRecipes(updatedRecipes);
           saveRecipesToBackend(updatedRecipes);
 
-          // 3. Update Modal state if still open
           setEditingMeal(prev => (prev && prev.meal.id === mealId) ? { ...prev, meal: { ...prev.meal, ingredients: formatted } } : prev);
         } else if (type === 'recipe' && recipeId) {
-          // 1. Update Recipes Library
           const updatedRecipes = recipes.map(r => r.id === recipeId ? { ...r, ingredients: formatted } : r);
           setRecipes(updatedRecipes);
           saveRecipesToBackend(updatedRecipes);
 
-          // 2. Sync back to Plans
           const updatedPlans = plans.map(p => ({
             ...p,
             meals: p.meals.map(m => m.name.toLowerCase() === recipeName?.toLowerCase() ? { ...m, ingredients: formatted } : m)
@@ -135,7 +130,6 @@ export default function App() {
           setPlans(updatedPlans);
           saveToBackend(updatedPlans);
 
-          // 3. Update Modal state if still open
           setEditingRecipe(prev => (prev && prev.id === recipeId) ? { ...prev, ingredients: formatted } : prev);
         }
       } else if (data.error) {
@@ -146,6 +140,46 @@ export default function App() {
       alert('Failed to connect to formatting service.');
     } finally {
       setIsFormatting(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'meal' | 'recipe') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.imageUrl) {
+        if (type === 'meal' && editingMeal) {
+          setEditingMeal({ ...editingMeal, meal: { ...editingMeal.meal, imageUrl: data.imageUrl } });
+        } else if (type === 'recipe' && editingRecipe) {
+          setEditingRecipe({ ...editingRecipe, imageUrl: data.imageUrl });
+        }
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Failed to upload image.');
+    }
+  };
+
+  const clearImage = (type: 'meal' | 'recipe') => {
+    if (type === 'meal' && editingMeal) {
+      const name = editingMeal.meal.name.trim();
+      const query = encodeURIComponent(name.replace(/\s+/g, ','));
+      const defaultUrl = `https://loremflickr.com/600/400/food,meal,${query}/all`;
+      setEditingMeal({ ...editingMeal, meal: { ...editingMeal.meal, imageUrl: defaultUrl } });
+    } else if (type === 'recipe' && editingRecipe) {
+      const name = editingRecipe.name.trim();
+      const query = encodeURIComponent(name.replace(/\s+/g, ','));
+      const defaultUrl = `https://loremflickr.com/600/400/food,meal,${query}/all`;
+      setEditingRecipe({ ...editingRecipe, imageUrl: defaultUrl });
     }
   };
 
@@ -546,7 +580,6 @@ export default function App() {
         </main>
       </div>
 
-
       {/* Add Meal Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -644,7 +677,7 @@ export default function App() {
                     className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 disabled:opacity-50 transition-opacity"
                   >
                     <Sparkles size={12} className={isFormatting ? "animate-pulse" : ""} />
-                    {isFormatting ? 'Formatting...' : 'Magic Format'}
+                    Magic Format
                   </button>
                 </div>
                 <textarea 
@@ -908,13 +941,40 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Image URL</label>
-                <input 
-                  type="text" 
-                  value={editingMeal.meal.imageUrl}
-                  onChange={(e) => setEditingMeal({...editingMeal, meal: {...editingMeal.meal, imageUrl: e.target.value}})}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
-                  placeholder="Paste a new image URL..."
-                />
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={editingMeal.meal.imageUrl}
+                      onChange={(e) => setEditingMeal({...editingMeal, meal: {...editingMeal.meal, imageUrl: e.target.value}})}
+                      className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-sm"
+                      placeholder="Paste a new image URL..."
+                    />
+                    <button 
+                      onClick={() => clearImage('meal')}
+                      className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold"
+                      title="Revert to default search image"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm"
+                    >
+                      <Upload size={18} />
+                      Upload Custom Photo
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={(e) => handleImageUpload(e, 'meal')} 
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3">
@@ -1032,13 +1092,40 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Image URL</label>
-                <input 
-                  type="text" 
-                  value={editingRecipe.imageUrl}
-                  onChange={(e) => setEditingRecipe({...editingRecipe, imageUrl: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
-                  placeholder="Paste a new image URL..."
-                />
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={editingRecipe.imageUrl}
+                      onChange={(e) => setEditingRecipe({...editingRecipe, imageUrl: e.target.value})}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-sm"
+                      placeholder="Paste a new image URL..."
+                    />
+                    <button 
+                      onClick={() => clearImage('recipe')}
+                      className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold"
+                      title="Revert to default search image"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm"
+                    >
+                      <Upload size={18} />
+                      Upload Custom Photo
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={(e) => handleImageUpload(e, 'recipe')} 
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3">
@@ -1101,6 +1188,7 @@ export default function App() {
                 onClick={() => window.print()}
                 className="w-full bg-white border border-gray-200 text-gray-700 font-bold py-3 rounded-2xl hover:bg-gray-100 transition-all shadow-sm flex items-center justify-center gap-2"
               >
+                <ImageIcon size={18} />
                 Print List
               </button>
             </div>

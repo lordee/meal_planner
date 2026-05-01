@@ -1,10 +1,10 @@
 {
   "domain": "meal_planner",
   "name": "Meal Planner",
-  "documentation": "https://github.com/your-username/meal_planner",
-  "issue_tracker": "https://github.com/your-username/meal_planner/issues",
+  "documentation": "https://github.com/lordee/meal_planner",
+  "issue_tracker": "https://github.com/lordee/meal_planner/issues",
   "dependencies": [],
-  "codeowners": ["@your-username"],
+  "codeowners": ["@lordee"],
   "config_flow": true,
   "iot_class": "local_polling",
   "version": "1.0.0"

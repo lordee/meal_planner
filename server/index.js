@@ -13,6 +13,23 @@ const DATA_FILE = path.join(__dirname, '../data/meals.md');
 const RECIPES_FILE = path.join(__dirname, '../data/recipes.md');
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
+// Ensure uploads directory exists
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ storage: storage });
+
 // Load Home Assistant Add-on Options if available
 let config = {};
 try {
@@ -34,18 +51,86 @@ const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Serve static files from the React frontend app
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
-// Serve uploaded images statically
-app.use('/uploads', express.static(UPLOADS_DIR));
-
-// Image Upload Endpoint
+// API Endpoints
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
   const imageUrl = `/uploads/${req.file.filename}`;
   res.json({ imageUrl });
+});
+
+// Image Upload from URL Endpoint
+app.post('/api/upload-url', async (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+    
+    const buffer = await response.arrayBuffer();
+    const contentType = response.headers.get('content-type');
+    let extension = '.jpg';
+    if (contentType && contentType.includes('/')) {
+      extension = `.${contentType.split('/')[1].split(';')[0]}`;
+    }
+    
+    const filename = `${Date.now()}${extension}`;
+    const filePath = path.join(UPLOADS_DIR, filename);
+    
+    fs.writeFileSync(filePath, Buffer.from(buffer));
+    
+    const imageUrl = `/uploads/${filename}`;
+    res.json({ imageUrl });
+  } catch (err) {
+    console.error('URL upload error:', err.message);
+    res.status(500).json({ error: 'Failed to download image' });
+  }
+});
+
+// List Local Images Endpoint
+app.get('/api/images', (req, res) => {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    return res.json([]);
+  }
+  try {
+    const files = fs.readdirSync(UPLOADS_DIR);
+    const images = files
+      .filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
+      })
+      .map(file => `/uploads/${file}`);
+    res.json(images);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list images' });
+  }
+});
+
+// Delete Local Image Endpoint
+app.post('/api/delete-image', (req, res) => {
+  const { imageUrl } = req.body;
+  if (!imageUrl || !imageUrl.startsWith('/uploads/')) {
+    return res.status(400).json({ error: 'Valid image URL required' });
+  }
+
+  const filename = path.basename(imageUrl);
+  const filePath = path.join(UPLOADS_DIR, filename);
+
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Image not found' });
+    }
+  } catch (err) {
+    console.error('Delete error:', err.message);
+    res.status(500).json({ error: 'Failed to delete image' });
+  }
 });
 
 // Helper to wrap JSON in Markdown
@@ -153,12 +238,23 @@ app.post('/api/format-ingredients', async (req, res) => {
   }
 });
 
+// Static files and Catch-all
+// Serve static files from the React frontend app
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Serve uploaded images statically
+app.use('/uploads', express.static(UPLOADS_DIR));
+
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
-// In Express 5, we use a middleware at the end to catch all remaining requests
-app.use((req, res) => {
+app.get(/^(?!\/api\/|\/uploads\/).*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
+
+
+
+// Explicitly handle 404s for API and Uploads that fall through
+app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found' }));
+app.use('/uploads', (req, res) => res.status(404).json({ error: 'Image not found' }));
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

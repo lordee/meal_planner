@@ -62,7 +62,7 @@
     "id": "465rkuxij",
     "name": "spaghetti bolognese",
     "description": "",
-    "imageUrl": "https://loremflickr.com/600/400/food,meal,spaghetti%2Cbolognese/all",
+    "imageUrl": "/uploads/1777633899326.jpeg",
     "recipeUrl": "",
     "ingredients": ""
   },

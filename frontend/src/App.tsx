@@ -54,18 +54,23 @@ export default function App() {
   const [editingMeal, setEditingMeal] = useState<{ weekId: string, day: string, originalDay: string, meal: Meal } | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isFormatting, setIsFormatting] = useState(false);
+  const [localImages, setLocalImages] = useState<string[]>([]);
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  const [imagePickerTarget, setImagePickerTarget] = useState<'meal' | 'recipe' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/meals').then(res => res.json()),
-      fetch('/api/recipes').then(res => res.json())
+      fetch('/api/recipes').then(res => res.json()),
+      fetch('/api/images').then(res => res.json())
     ])
-      .then(([mealData, recipeData]) => {
+      .then(([mealData, recipeData, imageData]) => {
         if (mealData.length > 0) setWeeks(mealData);
         else setWeeks([{ id: 'week-' + Date.now(), name: 'Current Week', archived: false, days: DAYS.map(day => ({ day, meals: [] })) }]);
         
         if (recipeData.length > 0) setRecipes(recipeData);
+        if (imageData.length > 0) setLocalImages(imageData);
         setLoading(false);
       })
       .catch(err => {
@@ -198,6 +203,57 @@ export default function App() {
     }
   };
 
+  const refreshImages = () => {
+    fetch('/api/images')
+      .then(res => res.json())
+      .then(data => setLocalImages(data))
+      .catch(err => console.error('Failed to refresh images:', err));
+  };
+
+  const deleteLocalImage = async (e: React.MouseEvent, img: string) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this image from the server?')) return;
+    
+    try {
+      const response = await fetch('/api/delete-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: img }),
+      });
+      if (response.ok) {
+        refreshImages();
+        // If the deleted image was currently selected in a modal, clear it
+        if (editingMeal?.meal.imageUrl === img) {
+          clearImage('meal');
+        } else if (editingRecipe?.imageUrl === img) {
+          clearImage('recipe');
+        }
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+    }
+  };
+
+  const handleImageUrlUpload = async (url: string, type: 'meal' | 'recipe') => {
+    if (!url || !url.startsWith('http')) return;
+    try {
+      const response = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await response.json();
+      if (data.imageUrl) {
+        if (type === 'meal' && editingMeal) {
+          setEditingMeal({ ...editingMeal, meal: { ...editingMeal.meal, imageUrl: data.imageUrl } });
+        } else if (type === 'recipe' && editingRecipe) {
+          setEditingRecipe({ ...editingRecipe, imageUrl: data.imageUrl });
+        }
+        refreshImages();
+      }
+    } catch (err) { console.error(err); }
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'meal' | 'recipe') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -212,6 +268,7 @@ export default function App() {
         } else if (type === 'recipe' && editingRecipe) {
           setEditingRecipe({ ...editingRecipe, imageUrl: data.imageUrl });
         }
+        refreshImages();
       }
     } catch (err) { console.error(err); }
   };
@@ -476,7 +533,40 @@ export default function App() {
               <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Description</label><textarea value={editingMeal.meal.description} onChange={(e) => setEditingMeal({...editingMeal, meal: {...editingMeal.meal, description: e.target.value}})} className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none h-24 resize-none transition-all" /></div>
               <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Recipe URL</label><div className="flex gap-2"><input type="text" value={editingMeal.meal.recipeUrl || ''} onChange={(e) => setEditingMeal({...editingMeal, meal: {...editingMeal.meal, recipeUrl: e.target.value}})} className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />{editingMeal.meal.recipeUrl && <a href={editingMeal.meal.recipeUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-gray-50 border border-gray-100 rounded-2xl text-emerald-600 hover:bg-emerald-50 transition-colors"><ExternalLink size={20} /></a>}</div></div>
               <div><div className="flex justify-between items-center mb-2"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Ingredients</label><button onClick={() => formatIngredientsWithAI(editingMeal.meal.ingredients || '', 'meal')} disabled={isFormatting || !(editingMeal.meal.ingredients || '').trim()} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"><Sparkles size={12} className={isFormatting ? "animate-pulse" : ""} /> Magic Format</button></div><textarea value={editingMeal.meal.ingredients || ''} onChange={(e) => setEditingMeal({...editingMeal, meal: {...editingMeal.meal, ingredients: e.target.value}})} className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none h-32 resize-none transition-all" /></div>
-              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Image URL</label><div className="flex flex-col gap-3"><div className="flex gap-2"><input type="text" value={editingMeal.meal.imageUrl} onChange={(e) => setEditingMeal({...editingMeal, meal: {...editingMeal.meal, imageUrl: e.target.value}})} className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm" /><button onClick={() => clearImage('meal')} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold">Reset</button></div><button onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm"><Upload size={18} /> Upload Photo</button><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'meal')} /></div></div>
+              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Image Source</label>
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm truncate flex items-center">
+                      {editingMeal.meal.imageUrl.startsWith('/uploads/') ? (
+                        <span className="text-emerald-600 font-mono flex items-center gap-2">
+                          <Check size={14} /> {editingMeal.meal.imageUrl}
+                        </span>
+                      ) : (
+                        <input 
+                          type="text" 
+                          value={editingMeal.meal.imageUrl} 
+                          onChange={(e) => setEditingMeal({...editingMeal, meal: {...editingMeal.meal, imageUrl: e.target.value}})} 
+                          className="w-full bg-transparent outline-none"
+                          placeholder="Paste image URL..."
+                        />
+                      )}
+                    </div>
+                    {editingMeal.meal.imageUrl.startsWith('http') && (
+                      <button onClick={() => handleImageUrlUpload(editingMeal.meal.imageUrl, 'meal')} className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all text-xs font-bold whitespace-nowrap">Host Locally</button>
+                    )}
+                    <button onClick={() => clearImage('meal')} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold">Reset</button>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm">
+                      <Upload size={18} /> {editingMeal.meal.imageUrl.startsWith('/uploads/') ? 'Replace' : 'Upload'}
+                    </button>
+                    <button onClick={() => { setImagePickerTarget('meal'); setIsImagePickerOpen(true); }} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm">
+                      <BookOpen size={18} /> Browse
+                    </button>
+                  </div>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'meal')} />
+                </div>
+              </div>
               <div className="flex gap-3"><button onClick={() => removeMeal(editingMeal.weekId, editingMeal.originalDay, editingMeal.meal.id)} className="flex-1 bg-red-50 text-red-600 font-bold py-4 rounded-2xl hover:bg-red-100 transition-all flex items-center justify-center gap-2"><Trash2 size={18} /> Delete</button><button onClick={() => updateMeal(editingMeal.weekId, editingMeal.meal, editingMeal.day)} className="flex-[2] bg-emerald-600 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 transition-all shadow-lg">Save Changes</button></div>
             </div>
           </div>
@@ -532,7 +622,40 @@ export default function App() {
               <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Description</label><textarea value={editingRecipe.description} onChange={(e) => setEditingRecipe({...editingRecipe, description: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none h-24 resize-none transition-all" /></div>
               <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Recipe URL</label><div className="flex gap-2"><input type="text" value={editingRecipe.recipeUrl || ''} onChange={(e) => setEditingRecipe({...editingRecipe, recipeUrl: e.target.value})} className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />{editingRecipe.recipeUrl && <a href={editingRecipe.recipeUrl} target="_blank" rel="noopener noreferrer" className="p-3 bg-gray-50 border border-gray-100 rounded-2xl text-emerald-600 hover:bg-emerald-50 transition-colors"><ExternalLink size={20} /></a>}</div></div>
               <div><div className="flex justify-between items-center mb-2"><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">Ingredients</label><button onClick={() => formatIngredientsWithAI(editingRecipe.ingredients || '', 'recipe')} disabled={isFormatting || !(editingRecipe.ingredients || '').trim()} className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"><Sparkles size={12} className={isFormatting ? "animate-pulse" : ""} /> Magic Format</button></div><textarea value={editingRecipe.ingredients || ''} onChange={(e) => setEditingRecipe({...editingRecipe, ingredients: e.target.value})} className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none h-32 resize-none transition-all" /></div>
-              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Image URL</label><div className="flex flex-col gap-3"><div className="flex gap-2"><input type="text" value={editingRecipe.imageUrl} onChange={(e) => setEditingRecipe({...editingRecipe, imageUrl: e.target.value})} className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm" /><button onClick={() => clearImage('recipe')} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold">Reset</button></div><button onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm"><Upload size={18} /> Upload Photo</button><input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'recipe')} /></div></div>
+              <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Image Source</label>
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm truncate flex items-center">
+                      {editingRecipe.imageUrl.startsWith('/uploads/') ? (
+                        <span className="text-emerald-600 font-mono flex items-center gap-2">
+                          <Check size={14} /> {editingRecipe.imageUrl}
+                        </span>
+                      ) : (
+                        <input 
+                          type="text" 
+                          value={editingRecipe.imageUrl} 
+                          onChange={(e) => setEditingRecipe({...editingRecipe, imageUrl: e.target.value})} 
+                          className="w-full bg-transparent outline-none"
+                          placeholder="Paste image URL..."
+                        />
+                      )}
+                    </div>
+                    {editingRecipe.imageUrl.startsWith('http') && (
+                      <button onClick={() => handleImageUrlUpload(editingRecipe.imageUrl, 'recipe')} className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-all text-xs font-bold whitespace-nowrap">Host Locally</button>
+                    )}
+                    <button onClick={() => clearImage('recipe')} className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all text-xs font-bold">Reset</button>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm">
+                      <Upload size={18} /> {editingRecipe.imageUrl.startsWith('/uploads/') ? 'Replace' : 'Upload'}
+                    </button>
+                    <button onClick={() => { setImagePickerTarget('recipe'); setIsImagePickerOpen(true); }} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all text-sm font-bold shadow-sm">
+                      <BookOpen size={18} /> Browse
+                    </button>
+                  </div>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'recipe')} />
+                </div>
+              </div>
               <div className="flex gap-3"><button onClick={() => { removeRecipe(editingRecipe.id); setEditingRecipe(null); }} className="flex-1 bg-red-50 text-red-600 font-bold py-4 rounded-2xl hover:bg-red-100 transition-all flex items-center justify-center gap-2"><Trash2 size={18} /> Delete</button><button onClick={() => updateRecipe(editingRecipe)} className="flex-[2] bg-emerald-600 text-white font-bold py-4 rounded-2xl hover:bg-emerald-700 transition-all shadow-lg">Save Changes</button></div>
             </div>
           </div>
@@ -598,6 +721,51 @@ export default function App() {
               ))}</div>}
             </div>
             <div className="p-6 border-t border-gray-50 bg-gray-50/30"><button onClick={() => window.print()} className="w-full bg-white border border-gray-200 text-gray-700 font-bold py-3 rounded-2xl hover:bg-gray-100 transition-all shadow-sm flex items-center justify-center gap-2"><ImageIcon size={18} /> Print List</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Picker Modal */}
+      {isImagePickerOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
+              <h3 className="text-xl font-bold text-gray-900">Select Local Image</h3>
+              <button onClick={() => setIsImagePickerOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400"><X size={20} /></button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+              {localImages.length === 0 ? (
+                <div className="text-center py-20 text-gray-400 italic">No locally stored images found. Upload or host some first!</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {localImages.map((img) => (
+                    <div 
+                      key={img} 
+                      onClick={() => {
+                        if (imagePickerTarget === 'meal' && editingMeal) {
+                          setEditingMeal({ ...editingMeal, meal: { ...editingMeal.meal, imageUrl: img } });
+                        } else if (imagePickerTarget === 'recipe' && editingRecipe) {
+                          setEditingRecipe({ ...editingRecipe, imageUrl: img });
+                        }
+                        setIsImagePickerOpen(false);
+                      }}
+                      className="group relative aspect-square rounded-xl overflow-hidden border border-gray-100 hover:border-emerald-500 hover:shadow-lg transition-all cursor-pointer"
+                    >
+                      <img src={img} className="w-full h-full object-cover" alt="Stored meal" />
+                      <div className="absolute inset-0 bg-emerald-600/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Check className="text-white bg-emerald-600 rounded-full p-1" size={32} />
+                      </div>
+                      <button 
+                        onClick={(e) => deleteLocalImage(e, img)}
+                        className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white shadow-sm z-10"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -1,3 +1,4 @@
+ARG BUILD_FROM=node:22-slim
 # Base image for building the frontend
 FROM node:22-slim AS frontend-builder
 WORKDIR /app/frontend
@@ -7,7 +8,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Final image
-FROM node:22-slim
+FROM $BUILD_FROM
 WORKDIR /app
 
 # Copy backend dependencies and install
@@ -17,6 +18,8 @@ RUN npm install --production
 # Copy backend code
 COPY server/ ./server/
 COPY data/ ./data/
+COPY run.sh ./
+RUN chmod a+x run.sh
 RUN mkdir -p uploads
 
 # Copy built frontend from previous stage
@@ -26,4 +29,4 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 EXPOSE 3001
 
 # Start the application
-CMD ["node", "server/index.js"]
+CMD ["./run.sh"]

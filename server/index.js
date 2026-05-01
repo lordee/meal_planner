@@ -9,11 +9,19 @@ require('dotenv').config();
 
 const app = express();
 const PORT = 3001;
-const DATA_FILE = path.join(__dirname, '../data/meals.md');
-const RECIPES_FILE = path.join(__dirname, '../data/recipes.md');
-const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
-// Ensure uploads directory exists
+// Home Assistant detection
+const IS_HA_ADDON = fs.existsSync('/data/options.json');
+const DATA_DIR = IS_HA_ADDON ? '/data' : path.join(__dirname, '../data');
+const UPLOADS_DIR = IS_HA_ADDON ? '/data/uploads' : path.join(__dirname, '../uploads');
+
+const DATA_FILE = path.join(DATA_DIR, 'meals.md');
+const RECIPES_FILE = path.join(DATA_DIR, 'recipes.md');
+
+// Ensure directories exist
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }

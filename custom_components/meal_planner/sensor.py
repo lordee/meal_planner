@@ -17,10 +17,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    # Note: In a real setup, host would come from config_flow
+    # Note: Host would ideally come from config_flow/entry.data
     host = "http://localhost:3001"
     async_add_entities([
         MealPlannerTodaySensor(host),
+        MealPlannerCurrentWeekSensor(host),
+        MealPlannerAllWeeksSensor(host),
         MealPlannerShoppingListSensor(host)
     ], True)
 
@@ -47,7 +49,6 @@ class MealPlannerTodaySensor(SensorEntity):
                         self._attr_native_value = "No active week"
                         return
 
-                    # Get today's day name
                     today = datetime.now().strftime("%A")
                     current_week = active_weeks[0]
                     day_plan = next((d for d in current_week["days"] if d["day"] == today), None)
@@ -59,10 +60,68 @@ class MealPlannerTodaySensor(SensorEntity):
                     else:
                         self._attr_native_value = "Nothing planned"
         except Exception as err:
-            _LOGGER.error("Error updating meal sensor: %s", err)
+            _LOGGER.error("Error updating today sensor: %s", err)
+
+class MealPlannerCurrentWeekSensor(SensorEntity):
+    """Sensor for the entire current week."""
+    
+    _attr_name = "Meal Planner Current Week"
+    _attr_unique_id = "meal_planner_current_week"
+    _attr_icon = "mdi:calendar-week"
+
+    def __init__(self, host: str):
+        self._host = host
+        self._attr_native_value = "No week"
+        self._attr_extra_state_attributes = {}
+
+    async def async_update(self) -> None:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self._host}/api/meals") as response:
+                    weeks = await response.json()
+                    active_weeks = [w for w in weeks if not w.get("archived")]
+                    if not active_weeks:
+                        self._attr_native_value = "None"
+                        return
+
+                    week = active_weeks[0]
+                    self._attr_native_value = week["name"]
+                    
+                    attrs = {}
+                    for day in week["days"]:
+                        meals = [m["name"] for m in day["meals"]]
+                        attrs[day["day"]] = ", ".join(meals) if meals else "Nothing"
+                        attrs[f"{day['day']}_detailed"] = day["meals"]
+                    
+                    self._attr_extra_state_attributes = attrs
+        except Exception as err:
+            _LOGGER.error("Error updating current week sensor: %s", err)
+
+class MealPlannerAllWeeksSensor(SensorEntity):
+    """Sensor that exposes all active weeks as structured data."""
+    
+    _attr_name = "Meal Planner All Weeks"
+    _attr_unique_id = "meal_planner_all_weeks"
+    _attr_icon = "mdi:calendar-multiple"
+
+    def __init__(self, host: str):
+        self._host = host
+        self._attr_native_value = 0
+        self._attr_extra_state_attributes = {}
+
+    async def async_update(self) -> None:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self._host}/api/meals") as response:
+                    weeks = await response.json()
+                    active_weeks = [w for w in weeks if not w.get("archived")]
+                    self._attr_native_value = len(active_weeks)
+                    self._attr_extra_state_attributes = {"weeks": active_weeks}
+        except Exception as err:
+            _LOGGER.error("Error updating all weeks sensor: %s", err)
 
 class MealPlannerShoppingListSensor(SensorEntity):
-    """Sensor that displays the total number of items to buy."""
+    """Sensor that counts total unique shopping items."""
     
     _attr_name = "Meal Planner Shopping List"
     _attr_unique_id = "meal_planner_shopping"
@@ -71,22 +130,33 @@ class MealPlannerShoppingListSensor(SensorEntity):
     def __init__(self, host: str):
         self._host = host
         self._attr_native_value = 0
+        self._attr_extra_state_attributes = {}
 
     async def async_update(self) -> None:
-        """Fetch ingredients to count items."""
         try:
-            # We'd ideally have a direct shopping list endpoint, 
-            # but for now we calculate items from active weeks
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{self._host}/api/meals") as response:
                     weeks = await response.json()
-                    # (Simplified counting logic for the sensor)
-                    items = 0
-                    for w in [w for w in weeks if not w.get("archived")]:
+                    active_weeks = [w for w in weeks if not w.get("archived")]
+                    
+                    ingredients_set = set()
+                    detailed_list = []
+                    
+                    for w in active_weeks:
                         for d in w["days"]:
                             for m in d["meals"]:
                                 if m.get("ingredients"):
-                                    items += len(m["ingredients"].split('\n'))
-                    self._attr_native_value = items
+                                    for line in m["ingredients"].split('\n'):
+                                        parts = line.split('|')
+                                        name = parts[-1].strip().lower() if len(parts) >= 3 else line.strip().lower()
+                                        if name:
+                                            ingredients_set.add(name)
+                                            detailed_list.append(line.strip())
+                    
+                    self._attr_native_value = len(ingredients_set)
+                    self._attr_extra_state_attributes = {
+                        "total_unique_items": len(ingredients_set),
+                        "raw_list": detailed_list
+                    }
         except Exception as err:
             _LOGGER.error("Error updating shopping sensor: %s", err)

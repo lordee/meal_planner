@@ -3,5 +3,8 @@
   "name": "Meal Planner",
   "version": "1.0.0",
   "documentation": "https://github.com/lordee/meal_planner",
-  "codeowners": ["@lordee"]
+  "issue_tracker": "https://github.com/lordee/meal_planner/issues",
+  "codeowners": ["@lordee"],
+  "config_flow": true,
+  "iot_class": "local_polling"
 }

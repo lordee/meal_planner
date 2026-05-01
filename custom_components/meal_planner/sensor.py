@@ -17,8 +17,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    # Note: Host would ideally come from config_flow/entry.data
-    host = "http://localhost:3001"
+    host = entry.data.get("host", "http://localhost:3001")
     async_add_entities([
         MealPlannerTodaySensor(host),
         MealPlannerCurrentWeekSensor(host),

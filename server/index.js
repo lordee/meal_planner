@@ -13,20 +13,23 @@ const DATA_FILE = path.join(__dirname, '../data/meals.md');
 const RECIPES_FILE = path.join(__dirname, '../data/recipes.md');
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
-// Configure Multer for image storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, 'upload-' + uniqueSuffix + path.extname(file.originalname));
+// Load Home Assistant Add-on Options if available
+let config = {};
+try {
+  if (fs.existsSync('/data/options.json')) {
+    config = JSON.parse(fs.readFileSync('/data/options.json', 'utf8'));
+    console.log('Home Assistant options loaded');
   }
-});
-const upload = multer({ storage });
+} catch (err) {
+  console.warn('Could not load Home Assistant options:', err.message);
+}
+
+// Configuration priority: HA Options > Environment Variables > Defaults
+const GEMINI_API_KEY = config.gemini_api_key || process.env.GEMINI_API_KEY;
 
 // Initialize Gemini
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -112,7 +115,7 @@ app.post('/api/recipes', (req, res) => {
 // Gemini Ingredient Formatting Endpoint
 app.post('/api/format-ingredients', async (req, res) => {
   if (!genAI) {
-    return res.status(400).json({ error: 'Gemini API key not configured. Please add GEMINI_API_KEY to your environment.' });
+    return res.status(400).json({ error: 'Gemini API key not configured. Please add gemini_api_key to your Home Assistant Add-on configuration or environment.' });
   }
 
   const { ingredients } = req.body;
@@ -159,7 +162,7 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('Warning: GEMINI_API_KEY not found in environment. AI formatting will be disabled.');
+  if (!GEMINI_API_KEY) {
+    console.warn('Warning: Gemini API key not found. AI formatting will be disabled.');
   }
 });

@@ -49,7 +49,7 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          image: ${{ matrix.image }}
           image-tags: |
             ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
             latest
@@ -70,7 +70,7 @@ jobs:
         with:
           architectures: ${{ env.ARCHITECTURES }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image-name: ghcr.io/${{ github.repository }}/${{ env.IMAGE_NAME }}
+          image-name: ${{ env.IMAGE_NAME }}
           image-tags: |
             ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
             latest

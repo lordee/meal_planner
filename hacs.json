@@ -1,4 +1,5 @@
 {
   "name": "Meal Planner",
+  "content_type": "integration",
   "homeassistant": "2024.1.0"
 }

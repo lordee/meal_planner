@@ -37,18 +37,15 @@ RUN npm install --production
 # Copy backend code
 COPY server/ ./server/
 COPY data/ ./data/
+COPY uploads/ ./uploads/
 COPY run.sh ./
 RUN chmod a+x run.sh
-RUN mkdir -p uploads
 
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Expose the port the app runs on
 EXPOSE 3001
-
-# Copy root filesystem
-COPY rootfs /
 
 LABEL \
     org.opencontainers.image.title="Home Assistant App: Meal Planner" \

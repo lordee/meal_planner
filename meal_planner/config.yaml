@@ -8,12 +8,12 @@ arch:
   - amd64
 ports:
   3001/tcp: 3001
-panel_port: 3001
+webui: "http://[HOST]:[PORT:3001]"
 options:
   gemini_api_key: ""
 schema:
-  gemini_api_key: str?
+  gemini_api_key: "str?"
 map:
   - config:rw
   - share:rw
-  - ssl
+image: "ghcr.io/lordee/meal-planner"

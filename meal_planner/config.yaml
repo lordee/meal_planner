@@ -16,4 +16,3 @@ schema:
 map:
   - config:rw
   - share:rw
-image: "ghcr.io/lordee/meal-planner"

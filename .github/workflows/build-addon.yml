@@ -48,6 +48,7 @@ jobs:
         uses: home-assistant/builder/actions/build-image@2026.03.2
         with:
           arch: ${{ matrix.arch }}
+          context: meal_planner
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image: ${{ matrix.image }}
           image-tags: |
@@ -55,7 +56,6 @@ jobs:
             latest
           push: ${{ github.event_name != 'pull_request' && 'true' || 'false' }}
           version: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
-          build-context: meal_planner
 
   manifest:
     name: Publish multi-arch manifest

@@ -1,4 +1,6 @@
-ARG BUILD_FROM=node:22-slim
+ARG BUILD_ARCH=amd64
+ARG BUILD_FROM=ghcr.io/home-assistant/${BUILD_ARCH}-base:latest
+
 # Base image for building the frontend
 FROM node:22-slim AS frontend-builder
 WORKDIR /app/frontend

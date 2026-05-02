@@ -55,6 +55,7 @@ jobs:
             latest
           push: ${{ github.event_name != 'pull_request' && 'true' || 'false' }}
           version: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+          build-context: meal_planner
 
   manifest:
     name: Publish multi-arch manifest

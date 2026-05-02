@@ -9,6 +9,10 @@ RUN npm run build
 
 # Final image
 FROM $BUILD_FROM
+
+# Install NodeJS and NPM
+RUN apk add --no-cache nodejs npm
+
 WORKDIR /app
 
 # Copy backend dependencies and install

@@ -7,7 +7,7 @@ arch:
   - aarch64
   - amd64
 ports:
-  3001/tcp: 3001
+  "3001/tcp": 3001
 webui: "http://[HOST]:[PORT:3001]"
 options:
   gemini_api_key: ""
@@ -16,4 +16,4 @@ schema:
 map:
   - config:rw
   - share:rw
-image: "ghcr.io/lordee/amd64-meal-planner"
+image: "ghcr.io/lordee/{arch}-meal-planner"

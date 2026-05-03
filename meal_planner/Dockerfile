@@ -12,6 +12,20 @@ RUN npm run build
 # Final image
 FROM ${BUILD_FROM}
 
+# Copy backend dependencies and install
+COPY package*.json ./
+RUN npm install --production
+
+# Copy backend code
+COPY server/ ./server/
+COPY data/ ./data/
+COPY uploads/ ./uploads/
+COPY run.sh ./
+RUN chmod a+x run.sh
+
+# Copy built frontend from previous stage
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
 # Execute during the build of the image
 ARG TEMPIO_VERSION=2021.09.0
 ARG TARGETARCH
@@ -29,20 +43,6 @@ RUN \
         "https://github.com/home-assistant/tempio/releases/download/${TEMPIO_VERSION}/tempio_${tempio_arch}"
 
 WORKDIR /app
-
-# Copy backend dependencies and install
-COPY package*.json ./
-RUN npm install --production
-
-# Copy backend code
-COPY server/ ./server/
-COPY data/ ./data/
-COPY uploads/ ./uploads/
-COPY run.sh ./
-RUN chmod a+x run.sh
-
-# Copy built frontend from previous stage
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Expose the port the app runs on
 EXPOSE 3001

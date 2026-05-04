@@ -45,14 +45,7 @@ jobs:
   build:
     name: Build ${{ matrix.arch }} image
     needs: tag
-    runs-on: ubuntu-latest # Changed to ubuntu-latest for simplicity
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    strategy:
-      matrix:
-        arch: ["amd64", "aarch64"]
+    # ...
     steps:
       - uses: actions/checkout@v4
 
@@ -63,14 +56,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push
+      - name: Build image
         uses: home-assistant/builder/actions/build-image@master
         with:
           arch: ${{ matrix.arch }}
           context: meal_planner
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image: ${{ env.IMAGE_NAME }}
-          # Force the tag name to match config.yaml
+          # CHANGE: Add {arch} here so it pushes amd64-meal-planner
+          image: ghcr.io/${{ github.repository_owner }}/{arch}-meal-planner
           image-tags: |
             ${{ needs.tag.outputs.new_tag }}
             latest
@@ -89,7 +82,8 @@ jobs:
         with:
           architectures: ${{ env.ARCHITECTURES }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image-name: meal-planner #${{ env.IMAGE_NAME }}
+          # CHANGE: Use the full path with the {arch} placeholder
+          image-name: ghcr.io/${{ github.repository_owner }}/{arch}-meal-planner
           image-tags: |
             ${{ needs.tag.outputs.new_tag }}
             latest

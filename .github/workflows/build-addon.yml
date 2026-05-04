@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'config.yaml' # Only trigger auto-tagging when config changes
+      - 'meal_planner/config.yaml' # Trigger only when the specific config changes
   workflow_dispatch: 
 
 env:
@@ -27,24 +27,39 @@ jobs:
       - name: Extract version
         id: get_version
         run: |
-          VERSION=$(grep '^version:' config.yaml | sed 's/version: //; s/"//g; s/ //g')
+          # Pointing directly to your subdirectory file
+          CONFIG_PATH="meal_planner/config.yaml"
+          
+          if [ ! -f "$CONFIG_PATH" ]; then
+            echo "Error: $CONFIG_PATH not found!"
+            exit 1
+          fi
+
+          # Extract version and strip any surrounding quotes or spaces
+          VERSION=$(grep '^version:' "$CONFIG_PATH" | sed 's/version: //; s/"//g; s/ //g')
+          
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not extract version from $CONFIG_PATH"
+            exit 1
+          fi
+          
+          echo "Found version $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Check if tag exists
+      - name: Check and push tag
         id: check_tag
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
           if git rev-parse "$VERSION" >/dev/null 2>&1; then
             echo "Tag $VERSION already exists. Skipping tagging."
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
           else
             echo "Creating new tag $VERSION"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "$VERSION"
             git push origin "$VERSION"
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   init:
     name: Initialize build
@@ -55,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.tag.outputs.new_tag }} # Build the newly created tag
+          ref: ${{ needs.tag.outputs.new_tag }}
 
       - name: Get build matrix
         id: matrix
@@ -84,7 +99,7 @@ jobs:
         uses: home-assistant/builder/actions/build-image@master
         with:
           arch: ${{ matrix.arch }}
-          context: . # Assumes config.yaml is in the root
+          context: meal_planner  # Directing build context to the subdirectory
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image: ${{ matrix.image }}
           image-tags: |

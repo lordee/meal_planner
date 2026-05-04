@@ -6,10 +6,11 @@ on:
     tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch: # Allows manual triggering from the Actions tab
 
 env:
   ARCHITECTURES: '["amd64", "aarch64"]'
-  IMAGE_NAME: meal-planner
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/meal-planner
 
 permissions:
   contents: read
@@ -21,11 +22,11 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Get build matrix
         id: matrix
-        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@2026.03.2
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@master
         with:
           architectures: ${{ env.ARCHITECTURES }}
           image-name: ${{ env.IMAGE_NAME }}
@@ -42,10 +43,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Build image
-        uses: home-assistant/builder/actions/build-image@2026.03.2
+        uses: home-assistant/builder/actions/build-image@master
         with:
           arch: ${{ matrix.arch }}
           context: meal_planner
@@ -54,12 +55,14 @@ jobs:
           image-tags: |
             ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
             latest
+          # Updated logic: push if it's NOT a PR (covers push, tags, and manual dispatch)
           push: ${{ github.event_name != 'pull_request' && 'true' || 'false' }}
           version: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
 
   manifest:
     name: Publish multi-arch manifest
     needs: [init, build]
+    # Updated logic: run if it's NOT a PR
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -67,7 +70,7 @@ jobs:
       packages: write
     steps:
       - name: Publish multi-arch manifest
-        uses: home-assistant/builder/actions/publish-multi-arch-manifest@2026.03.2
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@master
         with:
           architectures: ${{ env.ARCHITECTURES }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}

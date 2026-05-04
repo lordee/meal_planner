@@ -89,7 +89,7 @@ jobs:
         with:
           architectures: ${{ env.ARCHITECTURES }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image-name: ${{ env.IMAGE_NAME }}
+          image-name: meal-planner #${{ env.IMAGE_NAME }}
           image-tags: |
             ${{ needs.tag.outputs.new_tag }}
             latest

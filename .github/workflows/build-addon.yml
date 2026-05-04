@@ -93,3 +93,4 @@ jobs:
           image-tags: |
             ${{ needs.tag.outputs.new_tag }}
             latest
+          cosign: false

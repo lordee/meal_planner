@@ -70,7 +70,7 @@ jobs:
           context: meal_planner
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           # CHANGE: Add {arch} here so it pushes amd64-meal-planner
-          image: ghcr.io/${{ github.repository_owner }}/{arch}-meal-planner
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-meal-planner
           image-tags: |
             ${{ needs.tag.outputs.new_tag }}
             latest

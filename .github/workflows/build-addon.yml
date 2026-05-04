@@ -4,12 +4,12 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'meal_planner/config.yaml' # Trigger only when the specific config changes
+      - 'meal_planner/config.yaml'
   workflow_dispatch: 
 
 env:
   ARCHITECTURES: '["amd64", "aarch64"]'
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/meal_planner
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/meal-planner
 
 jobs:
   tag:
@@ -18,7 +18,7 @@ jobs:
     permissions:
       contents: write
     outputs:
-      new_tag: ${{ steps.check_tag.outputs.version }}
+      new_tag: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,81 +27,50 @@ jobs:
       - name: Extract version
         id: get_version
         run: |
-          # Pointing directly to your subdirectory file
-          CONFIG_PATH="meal_planner/config.yaml"
-          
-          if [ ! -f "$CONFIG_PATH" ]; then
-            echo "Error: $CONFIG_PATH not found!"
-            exit 1
-          fi
-
-          # Extract version and strip any surrounding quotes or spaces
-          VERSION=$(grep '^version:' "$CONFIG_PATH" | sed 's/version: //; s/"//g; s/ //g')
-          
-          if [ -z "$VERSION" ]; then
-            echo "Error: Could not extract version from $CONFIG_PATH"
-            exit 1
-          fi
-          
-          echo "Found version $VERSION"
+          VERSION=$(grep '^version:' meal_planner/config.yaml | sed 's/version: //; s/"//g; s/ //g')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Check and push tag
-        id: check_tag
+      - name: Create and Push Tag
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
           if git rev-parse "$VERSION" >/dev/null 2>&1; then
-            echo "Tag $VERSION already exists. Skipping tagging."
+            echo "Tag $VERSION already exists."
           else
-            echo "Creating new tag $VERSION"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "$VERSION"
             git push origin "$VERSION"
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-  init:
-    name: Initialize build
-    needs: tag
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.tag.outputs.new_tag }}
-
-      - name: Get build matrix
-        id: matrix
-        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@master
-        with:
-          architectures: ${{ env.ARCHITECTURES }}
-          image-name: ${{ env.IMAGE_NAME }}
 
   build:
     name: Build ${{ matrix.arch }} image
-    needs: [tag, init]
-    runs-on: ${{ matrix.os }}
+    needs: tag
+    runs-on: ubuntu-latest # Changed to ubuntu-latest for simplicity
     permissions:
       contents: read
-      id-token: write
       packages: write
+      id-token: write
     strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
+      matrix:
+        arch: ["amd64", "aarch64"]
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.tag.outputs.new_tag }}
 
-      - name: Build image
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
         uses: home-assistant/builder/actions/build-image@master
         with:
           arch: ${{ matrix.arch }}
-          context: meal_planner  # Directing build context to the subdirectory
+          context: meal_planner
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-          image: ${{ matrix.image }}
+          image: ${{ env.IMAGE_NAME }}
+          # Force the tag name to match config.yaml
           image-tags: |
             ${{ needs.tag.outputs.new_tag }}
             latest
@@ -110,10 +79,9 @@ jobs:
 
   manifest:
     name: Publish multi-arch manifest
-    needs: [tag, init, build]
+    needs: [tag, build]
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       packages: write
     steps:
       - name: Publish multi-arch manifest

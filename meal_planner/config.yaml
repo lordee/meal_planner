@@ -1,12 +1,13 @@
 name: "Meal Planner"
 description: "A simple meal planner with AI-powered ingredient formatting"
-version: "v1.0.13"
+version: "v1.0.14"
 slug: "meal_planner"
 init: false
 arch:
   - aarch64
   - amd64
 ingress: true
+ingress_port: 3001
 panel_icon: "mdi:silverware-variant"
 panel_title: "Meal Planner"
 ports:

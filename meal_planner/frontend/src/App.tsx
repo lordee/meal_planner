@@ -61,9 +61,9 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/meals').then(res => res.json()),
-      fetch('/api/recipes').then(res => res.json()),
-      fetch('/api/images').then(res => res.json())
+      fetch('api/meals').then(res => res.json()),
+      fetch('api/recipes').then(res => res.json()),
+      fetch('api/images').then(res => res.json())
     ])
       .then(([mealData, recipeData, imageData]) => {
         if (mealData.length > 0) setWeeks(mealData);
@@ -80,7 +80,7 @@ export default function App() {
   }, []);
 
   const saveToBackend = (updatedWeeks: Week[]) => {
-    fetch('/api/meals', {
+    fetch('api/meals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedWeeks),
@@ -88,7 +88,7 @@ export default function App() {
   };
 
   const saveRecipesToBackend = (updatedRecipes: Recipe[]) => {
-    fetch('/api/recipes', {
+    fetch('api/recipes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedRecipes),
@@ -149,7 +149,7 @@ export default function App() {
     const recipeName = editingRecipe?.name;
 
     try {
-      const response = await fetch('/api/format-ingredients', {
+      const response = await fetch('api/format-ingredients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients }),
@@ -204,7 +204,7 @@ export default function App() {
   };
 
   const refreshImages = () => {
-    fetch('/api/images')
+    fetch('api/images')
       .then(res => res.json())
       .then(data => setLocalImages(data))
       .catch(err => console.error('Failed to refresh images:', err));
@@ -215,7 +215,7 @@ export default function App() {
     if (!confirm('Are you sure you want to delete this image from the server?')) return;
     
     try {
-      const response = await fetch('/api/delete-image', {
+      const response = await fetch('api/delete-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageUrl: img }),
@@ -237,7 +237,7 @@ export default function App() {
   const handleImageUrlUpload = async (url: string, type: 'meal' | 'recipe') => {
     if (!url || !url.startsWith('http')) return;
     try {
-      const response = await fetch('/api/upload-url', {
+      const response = await fetch('api/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
@@ -260,7 +260,7 @@ export default function App() {
     const formData = new FormData();
     formData.append('image', file);
     try {
-      const response = await fetch('/api/upload', { method: 'POST', body: formData });
+      const response = await fetch('api/upload', { method: 'POST', body: formData });
       const data = await response.json();
       if (data.imageUrl) {
         if (type === 'meal' && editingMeal) {

@@ -1,6 +1,6 @@
 name: "Meal Planner"
 description: "A simple meal planner with AI-powered ingredient formatting"
-version: "v1.0.15"
+version: "v1.0.16"
 slug: "meal_planner"
 init: false
 arch:

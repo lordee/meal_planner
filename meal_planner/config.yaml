@@ -1,6 +1,6 @@
 name: "Meal Planner"
 description: "A simple meal planner with AI-powered ingredient formatting"
-version: "v1.0.5"
+version: "v1.0.6"
 slug: "meal_planner"
 init: false
 arch:
@@ -19,4 +19,4 @@ schema:
 map:
   - config:rw
   - share:rw
-image: "ghcr.io/lordee/{arch}-meal-planner"
+image: "ghcr.io/lordee/meal-planner"

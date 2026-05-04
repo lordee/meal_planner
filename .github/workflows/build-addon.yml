@@ -3,26 +3,59 @@ name: Build Home Assistant Add-on
 on:
   push:
     branches: [ "main" ]
-    tags: [ "v*" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+    paths:
+      - 'config.yaml' # Only trigger auto-tagging when config changes
+  workflow_dispatch: 
 
 env:
   ARCHITECTURES: '["amd64", "aarch64"]'
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/meal-planner
 
-permissions:
-  contents: read
-
 jobs:
+  tag:
+    name: Auto-tag version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_tag: ${{ steps.check_tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: get_version
+        run: |
+          VERSION=$(grep '^version:' config.yaml | sed 's/version: //; s/"//g; s/ //g')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists. Skipping tagging."
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Creating new tag $VERSION"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$VERSION"
+            git push origin "$VERSION"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
   init:
     name: Initialize build
+    needs: tag
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.new_tag }} # Build the newly created tag
 
       - name: Get build matrix
         id: matrix
@@ -33,7 +66,7 @@ jobs:
 
   build:
     name: Build ${{ matrix.arch }} image
-    needs: init
+    needs: [tag, init]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -44,26 +77,25 @@ jobs:
       matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.tag.outputs.new_tag }}
 
       - name: Build image
         uses: home-assistant/builder/actions/build-image@master
         with:
           arch: ${{ matrix.arch }}
-          context: meal_planner
+          context: . # Assumes config.yaml is in the root
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image: ${{ matrix.image }}
           image-tags: |
-            ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+            ${{ needs.tag.outputs.new_tag }}
             latest
-          # Updated logic: push if it's NOT a PR (covers push, tags, and manual dispatch)
-          push: ${{ github.event_name != 'pull_request' && 'true' || 'false' }}
-          version: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+          push: true
+          version: ${{ needs.tag.outputs.new_tag }}
 
   manifest:
     name: Publish multi-arch manifest
-    needs: [init, build]
-    # Updated logic: run if it's NOT a PR
-    if: github.event_name != 'pull_request'
+    needs: [tag, init, build]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -76,5 +108,5 @@ jobs:
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
           image-name: ${{ env.IMAGE_NAME }}
           image-tags: |
-            ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+            ${{ needs.tag.outputs.new_tag }}
             latest

@@ -353,6 +353,27 @@ export default function App() {
     setEditingMeal(null);
   };
 
+  const addRecipe = () => {
+    const name = newMeal.name.trim();
+    if (!name) return;
+    const query = encodeURIComponent(name.replace(/\s+/g, ','));
+    const imageUrl = `https://loremflickr.com/600/400/food,meal,${query}/all`;
+    const updatedRecipes = [
+      ...recipes,
+      { 
+        id: Math.random().toString(36).substr(2, 9), 
+        name: name, 
+        description: newMeal.description, 
+        imageUrl,
+        recipeUrl: newMeal.recipeUrl,
+        ingredients: newMeal.ingredients
+      }
+    ];
+    setRecipes(updatedRecipes);
+    saveRecipesToBackend(updatedRecipes);
+    setNewMeal({ name: '', description: '', recipeUrl: '', ingredients: '' });
+  };
+
   const updateRecipe = (updatedRecipe: Recipe) => {
     const oldRecipe = recipes.find(r => r.id === updatedRecipe.id);
     if (!oldRecipe) return;

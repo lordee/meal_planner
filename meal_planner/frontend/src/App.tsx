@@ -455,12 +455,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-900 flex flex-col">
-      <header className="max-w-[1600px] mx-auto mb-12 flex justify-between items-end w-full">
+      <header className="max-w-[1600px] mx-auto mb-8 md:mb-12 flex flex-col md:flex-row gap-4 justify-between items-start md:items-end w-full">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Weekly Feast</h1>
           <p className="text-gray-500 mt-2">Plan your culinary journey.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button onClick={() => setIsArchivedViewOpen(true)} className="flex items-center gap-2 bg-gray-100 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-200 transition-colors shadow-sm">
             <Archive size={20} />
             <span className="font-medium">Archives</span>
@@ -476,8 +476,8 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-8 max-w-[1600px] mx-auto w-full">
-        <aside className="w-full lg:w-80 flex flex-col gap-6 bg-white/50 backdrop-blur rounded-3xl border border-gray-100 p-6 shadow-sm h-fit sticky top-8">
+      <div className="flex-1 flex flex-col-reverse lg:flex-row gap-8 max-w-[1600px] mx-auto w-full">
+        <aside className="w-full lg:w-80 flex flex-col gap-6 bg-white/50 backdrop-blur rounded-3xl border border-gray-100 p-6 shadow-sm h-fit lg:sticky lg:top-8">
           <h2 className="text-xl font-bold">Library</h2>
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} /><input type="text" placeholder="Search favorites..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all text-sm" /></div>
           <div className="max-h-[60vh] overflow-y-auto space-y-3 custom-scrollbar">
